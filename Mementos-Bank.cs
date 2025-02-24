@@ -1,54 +1,158 @@
 using System;
-using System.Collections.Generic;
+using System.Collection.Generic;
 
-class Program
+public class User
 {
-    static void Main()
+    private BankAccount _account;
+
+    public User(BankAccount account)
     {
-        BankAccount account = new BankAccount(5000);
-        TransactionHistory history = new TransactionHistory();
+        _account = account;
+    }
 
-        account.Deposit(2000);
-        history.AddTransaction(account.Save());  // Save state
-
-        account.Withdraw(1000);
-        history.AddTransaction(account.Save());  // Save state
-
-        Console.WriteLine("\nCurrent Balance: " + account.Balance);
-
-        // Undo last transaction
-        account.Restore(history.Undo());
-        Console.WriteLine("After Undo: " + account.Balance);
+    public void PerformTransaction(int amount, string type)
+    {
+        if(type == "deposit")
+        {
+            _account.Deposit(amount);
+        } else if (type == "withdraw")
+        {
+            _account.Withdraw(amount);
+        }
     }
 }
 
-class BankAccount
+public class TransactionMemento
 {
-    public int Balance { get; private set; }
+    public int Balance { get ; private set; }
 
-    public BankAccount(int balance) => Balance = balance;
+    public TransactionMemento(int balance)
+    {
+        Balance = balance;
+    }
 
-    public void Deposit(int amount) => Balance += amount;
-    public void Withdraw(int amount) => Balance -= amount;
-
-    public TransactionMemento Save() => new TransactionMemento(Balance);
-    
-    public void Restore(TransactionMemento memento) => Balance = memento.GetBalance();
+    public int GetBalance()
+    {
+        return Balance;
+    }
 }
 
-class TransactionMemento
+public class BankAccount 
 {
-    private readonly int balance;
-    
-    public TransactionMemento(int balance) => this.balance = balance;
+    public int Balance { get; protected set; }
 
-    public int GetBalance() => balance;
+    public BankAccount(int balance)
+    {
+        Balance = balance;
+    }
+
+    public void Deposit (int main) 
+    {
+        Balance += amount;
+    }
+
+    public void Withdraw(int amount)
+    {
+        if (amount <= Balance)
+        {
+            Balance -= amount;
+        }
+        else {
+            throw new InvalidOperationException("Insufficient Amount");
+        }
+    }
+
+    public TransactionMemento Save()
+    {
+        return new TransactionMemento(Balance);
+    }
+
+    public void Restore(TransactionMemento memento)
+    {
+        Balance = memento.GetBalance();
+    }
+
+    public class SavingAccount : BankAccount
+    {
+        public double InterestRate {get; private set;}
+
+        public SavingAccount(int balance, double interestRate) : base(Balance)
+        {
+            InterestRate = interestRate;
+        }
+
+        public double CalculateInterest()
+        {
+            return Balance * InterestRate;
+        }
+
+        public void ApplyInterest()
+        {
+            Balance += (int)CalculateInterest();
+        }
+    }
+
+    public class CheckingAccount : BankAccount
+    {
+        public int OverdraftLimit {get; private set;}
+
+        public CheckingAccount(int balance, int OverdraftLimit) : base(Balance)
+        {
+            OverdraftLimit = OverdraftLimit;
+        }
+
+        public bool CheckOverdraft(int amount)
+        {
+            return (Balance - amount) >= -OverdraftLimit;
+        }
+
+        public void ApplyOverdraftFee()
+        {
+            if (Balance < 0)
+            {
+                Balance -= 25;
+            }
+        }
+    }
 }
 
-class TransactionHistory
+public class TransactionHistory
 {
-    private Stack<TransactionMemento> transactions = new Stack<TransactionMemento>();
+    private List<TransactionMemento> transactions = new List<TransactionMemento>;
 
-    public void AddTransaction(TransactionMemento memento) => transactions.Push(memento);
-    public TransactionMemento Undo() => transactions.Count > 0 ? transactions.Pop() : new TransactionMemento(0);
+    public void AddTransaction(TransactionMemento memento)
+    {
+        transactions.Add(memento);
+    }
+
+    public TransactionMemento Undo()
+    {
+        if (transactions.Count > 0)
+        {
+            var lastMemento = transactions[transactions.Count - 1];
+            transactions.RemoveAt(transactions.Count -1);
+            return lastMemento;
+        }
+        throw new InvalidOperationException("No transactions to undo");
+    }
+}
+
+class Program 
+{
+    static void Main(string[] args)
+    {
+        var savingAccount = new SavingAccount(100, 0.05);
+        var TransactionHistory = new TransactionHistory();
+
+        SavingAccount.Deposit(500);
+        TransactionHistory.AddTransaction(savingAccount.Save());
+
+        savingAccount.withdraw(200);
+        TransactionHistory.AddTransaction(savingAccount.Save());
+
+        var lastState = TransactionHistory.Undo();
+        savingAccount.Restore(lastState);
+
+        Console.WriteLine($"Final Balance: {savingAccount.Balance}");
+    }
 }
